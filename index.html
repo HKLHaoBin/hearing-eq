@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0e1116" />
+  <title>听感测听 → EQ</title>
+  <style>
+    :root {
+      --bg: #0e1116;
+      --card: #181c24;
+      --line: #2a3140;
+      --text: #e8edf5;
+      --muted: #93a0b5;
+      --accent: #6ee7b7;
+      --heard: #34d399;
+      --miss: #94a3b8;
+      --warn: #fbbf24;
+      --danger: #f87171;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
+    body {
+      font-family: "PingFang SC", "Noto Sans SC", "Source Han Sans SC", system-ui, sans-serif;
+      line-height: 1.5;
+      padding: calc(16px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 8px; letter-spacing: 0.02em; }
+    h2 { font-size: 1.05rem; margin: 0 0 10px; }
+    p { color: var(--muted); margin: 0 0 12px; }
+    .wrap { max-width: 560px; margin: 0 auto; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    label.opt {
+      flex: 1;
+      min-width: 120px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      background: #12161d;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+    }
+    label.opt:has(:checked) { border-color: var(--accent); color: var(--accent); }
+    button {
+      font: inherit;
+      border: 0;
+      border-radius: 14px;
+      padding: 14px 16px;
+      cursor: pointer;
+      min-height: 48px;
+    }
+    .btn-primary { background: var(--accent); color: #062016; font-weight: 700; width: 100%; }
+    .btn-ghost { background: #12161d; color: var(--text); border: 1px solid var(--line); }
+    .btn-heard { flex: 1; background: #0f3d2e; color: var(--heard); font-weight: 700; font-size: 1.1rem; }
+    .btn-miss { flex: 1; background: #1b2230; color: var(--miss); font-weight: 700; font-size: 1.1rem; }
+    button:disabled { opacity: 0.45; }
+    .freq {
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin: 8px 0 4px;
+    }
+    .ear-tag { color: var(--accent); font-size: 0.9rem; }
+    .progress {
+      height: 6px;
+      background: #12161d;
+      border-radius: 99px;
+      overflow: hidden;
+      margin: 10px 0 16px;
+    }
+    .progress > span { display: block; height: 100%; background: var(--accent); width: 0; transition: width 0.2s; }
+    .hint { font-size: 0.85rem; color: var(--muted); }
+    .warn { color: var(--warn); font-size: 0.85rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 500; }
+    .num { font-variant-numeric: tabular-nums; }
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      background: #12161d;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      font-family: ui-monospace, "Cascadia Code", monospace;
+      font-size: 0.8rem;
+    }
+    .hidden { display: none !important; }
+    .pulse { animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse {
+      50% { opacity: 0.45; }
+    }
+    svg.chart { width: 100%; height: 180px; display: block; }
+    .seg { display: flex; background: #12161d; border-radius: 12px; padding: 4px; margin-bottom: 12px; }
+    .seg button { flex: 1; background: transparent; color: var(--muted); min-height: 40px; padding: 8px; }
+    .seg button.on { background: var(--card); color: var(--accent); font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section id="screen-home">
+      <h1>听感测听 → 参数 EQ</h1>
+        <p>戴耳机，在安静环境里对每个频点选「听得到」或「听不到」。测完后会按相对听阈给出增益、Q 和频点建议。这不是医学诊断。</p>
+        <p class="hint">目标 EQ 四段频点范围：① 20–200 Hz　② 210–3000 Hz　③ 3100–5000 Hz　④ 5100–10000 Hz。建议不会超出这些范围。</p>
+      <div class="card">
+        <h2>测试范围</h2>
+        <div class="row" style="margin-bottom:12px">
+          <label class="opt"><input type="radio" name="mode" value="quick" checked /> 快速 · 4 频点<br /><span class="hint">100 / 2k / 4k / 8k Hz</span></label>
+          <label class="opt"><input type="radio" name="mode" value="full" /> 完整 · 8 频点<br /><span class="hint">含 250、500、1k、12k</span></label>
+        </div>
+        <h2>声道</h2>
+        <div class="row">
+          <label class="opt"><input type="radio" name="ear" value="both" checked /> 双耳一起</label>
+          <label class="opt"><input type="radio" name="ear" value="lr" /> 先左后右</label>
+        </div>
+      </div>
+      <div class="card">
+        <h2>音量校准</h2>
+        <p>会播放 1 kHz 参考音。把系统音量调到「清楚但舒适」，校准后不要再动音量。</p>
+        <div class="row">
+          <button class="btn-ghost" id="btn-calib" type="button" style="flex:1">播放参考音</button>
+          <button class="btn-ghost" id="btn-calib-stop" type="button" style="flex:1">停止</button>
+        </div>
+        <p class="hint" style="margin-top:10px">建议有线耳机；部分蓝牙会把左右混成单声道。</p>
+      </div>
+      <button class="btn-primary" id="btn-start" type="button">开始测听</button>
+    </section>
+
+    <section id="screen-test" class="hidden">
+      <div class="card">
+        <div class="hint" id="test-progress-label">1 / 4</div>
+        <div class="progress"><span id="test-bar"></span></div>
+        <div class="ear-tag" id="test-ear">双耳</div>
+        <div class="freq" id="test-freq">100 Hz</div>
+        <p id="test-status" class="pulse">正在播放纯音…</p>
+        <div class="row">
+          <button class="btn-heard" id="btn-heard" type="button">听得到</button>
+          <button class="btn-miss" id="btn-miss" type="button">听不到</button>
+        </div>
+        <p class="hint" style="margin-top:12px">没听清就选听不到。偶发静音是测谎，请照实选。</p>
+      </div>
+    </section>
+
+    <section id="screen-result" class="hidden">
+      <h1>EQ 建议</h1>
+      <p class="warn">按「相对最灵敏频点 + 半增益」估算，并限制在 +12 dB 内。可改频点、Q、增益。把下方文本发给我即可继续微调。</p>
+      <div class="card">
+        <h2>补偿强度</h2>
+        <div class="seg" id="intensity">
+          <button type="button" data-k="0.35">温和</button>
+          <button type="button" data-k="0.5" class="on">均衡</button>
+          <button type="button" data-k="0.7">完整</button>
+        </div>
+        <svg class="chart" id="chart" viewBox="0 0 560 180" aria-label="听阈曲线"></svg>
+        <table>
+          <thead><tr><th>频点</th><th>类型</th><th>Q</th><th>增益</th></tr></thead>
+          <tbody id="eq-body"></tbody>
+        </table>
+        <p class="hint" id="preamp-line" style="margin-top:10px"></p>
+        <div class="row" style="margin-top:12px">
+          <button class="btn-ghost" id="btn-preview" type="button" style="flex:1">试听粉噪（EQ 开）</button>
+          <button class="btn-ghost" id="btn-preview-off" type="button" style="flex:1">粉噪（EQ 关）</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>测听摘要</h2>
+        <table>
+          <thead><tr><th>频点</th><th>阈值</th><th>相对损失</th></tr></thead>
+          <tbody id="th-body"></tbody>
+        </table>
+        <p class="hint" id="false-alarm" style="margin-top:10px"></p>
+      </div>
+      <div class="card">
+        <h2>复制给 Agent</h2>
+        <textarea id="export" readonly></textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="btn-primary" id="btn-copy" type="button">复制结果</button>
+        </div>
+      </div>
+      <button class="btn-ghost" id="btn-retry" type="button" style="width:100%;margin-top:8px">重新测试</button>
+    </section>
+  </div>
+
+  <script>
+(function () {
+  const QUICK = [100, 2000, 4000, 8000];
+  const FULL = [100, 250, 500, 1000, 2000, 4000, 8000, 12000];
+  const SLOTS = [
+    { min: 20, max: 200, type: "lowshelf", q: 0.7, fallback: 100 },
+    { min: 210, max: 3000, type: "peaking", q: 1.0, fallback: 500 },
+    { min: 3100, max: 5000, type: "peaking", q: 1.41, fallback: 4000 },
+    { min: 5100, max: 10000, type: "highshelf", q: 0.7, fallback: 8000 }
+  ];
+  const CALIB_DBFS = -20;
+  const REF_DBFS = -28;
+  const MIN_DBFS = -80;
+  const MAX_DBFS = -6;
+  const START_HL = 0;
+  const MIN_HL = -60;
+  const MAX_HL = 18;
+  const EL_TABLE = [
+    [20, 28], [25, 24], [31.5, 20], [40, 16.5], [50, 13.5], [63, 11],
+    [80, 8.5], [100, 11.1], [125, 8.0], [160, 6.0], [200, 4.8],
+    [250, 4.2], [315, 3.0], [400, 2.0], [500, 1.5], [630, 0.8],
+    [800, 0.3], [1000, 0], [1250, -0.8], [1500, -1.4], [2000, -2.6],
+    [2500, -3.4], [3000, -4.0], [4000, -4.5], [5000, -3.2], [6000, -1.5],
+    [8000, 1.5], [10000, 5.0], [12000, 8.5], [14000, 12], [16000, 16]
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  const screens = {
+    home: $("screen-home"),
+    test: $("screen-test"),
+    result: $("screen-result")
+  };
+
+  let audio;
+  let intensity = 0.5;
+  let lastReport = null;
+  let previewNodes = [];
+
+  function show(name) {
+    Object.values(screens).forEach((el) => el.classList.add("hidden"));
+    screens[name].classList.remove("hidden");
+  }
+
+  function elOffset(hz) {
+    const tab = EL_TABLE;
+    if (hz <= tab[0][0]) return tab[0][1];
+    if (hz >= tab[tab.length - 1][0]) return tab[tab.length - 1][1];
+    for (let i = 0; i < tab.length - 1; i++) {
+      const [f0, g0] = tab[i];
+      const [f1, g1] = tab[i + 1];
+      if (hz >= f0 && hz <= f1) {
+        const t = Math.log(hz / f0) / Math.log(f1 / f0);
+        return g0 + t * (g1 - g0);
+      }
+    }
+    return 0;
+  }
+
+  function fmtHz(hz) {
+    return hz >= 1000 ? (hz / 1000).toString().replace(/\.0$/, "") + " kHz" : hz + " Hz";
+  }
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function roundHalf(v) { return Math.round(v * 2) / 2; }
+
+  class AudioEngine {
+    constructor() {
+      this.ctx = null;
+      this.playing = [];
+    }
+    async ensure() {
+      if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (this.ctx.state === "suspended") await this.ctx.resume();
+      return this.ctx;
+    }
+    stop() {
+      this.playing.forEach((n) => {
+        try { n.stop(); } catch (e) {}
+        try { n.disconnect(); } catch (e) {}
+      });
+      this.playing = [];
+      previewNodes.forEach((n) => {
+        try { n.stop && n.stop(); } catch (e) {}
+        try { n.disconnect(); } catch (e) {}
+      });
+      previewNodes = [];
+    }
+    async playTone({ hz, dbfs, ear, seconds }) {
+      const ctx = await this.ensure();
+      this.stop();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const merger = ctx.createChannelMerger(2);
+      osc.type = "sine";
+      osc.frequency.value = hz;
+      const amp = Math.pow(10, dbfs / 20);
+      const now = ctx.currentTime;
+      const dur = seconds || 1.15;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(amp, now + 0.025);
+      gain.gain.setValueAtTime(amp, now + dur - 0.04);
+      gain.gain.linearRampToValueAtTime(0, now + dur);
+      osc.connect(gain);
+      if (ear === "left") {
+        gain.connect(merger, 0, 0);
+      } else if (ear === "right") {
+        gain.connect(merger, 0, 1);
+      } else {
+        gain.connect(merger, 0, 0);
+        gain.connect(merger, 0, 1);
+      }
+      merger.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + dur + 0.02);
+      this.playing.push(osc, gain, merger);
+      return dur;
+    }
+  }
+
+  class Staircase {
+    constructor() {
+      this.level = START_HL;
+      this.phase = "descend";
+      this.hits = {};
+      this.trials = 0;
+      this.done = false;
+      this.threshold = null;
+    }
+    record(heard) {
+      this.trials += 1;
+      if (this.phase === "descend") {
+        if (heard) {
+          if (this.level <= MIN_HL) {
+            this.threshold = MIN_HL;
+            this.done = true;
+            return;
+          }
+          this.level = clamp(this.level - 10, MIN_HL, MAX_HL);
+        } else {
+          this.phase = "hw";
+          this.level = clamp(this.level + 5, MIN_HL, MAX_HL);
+        }
+      } else if (heard) {
+        const key = String(this.level);
+        this.hits[key] = (this.hits[key] || 0) + 1;
+        if (this.hits[key] >= 2) {
+          this.threshold = this.level;
+          this.done = true;
+          return;
+        }
+        this.level = clamp(this.level - 10, MIN_HL, MAX_HL);
+      } else {
+        if (this.level >= MAX_HL) {
+          this.threshold = MAX_HL;
+          this.done = true;
+          return;
+        }
+        this.level = clamp(this.level + 5, MIN_HL, MAX_HL);
+      }
+      if (this.trials >= 12) {
+        const keys = Object.keys(this.hits).map(Number);
+        this.threshold = keys.length ? Math.min.apply(null, keys) : this.level;
+        this.done = true;
+      }
+    }
+  }
+
+  function playDbfs(hz, hl) {
+    return clamp(REF_DBFS + hl + elOffset(hz), MIN_DBFS, MAX_DBFS);
+  }
+
+  function interpLog(xs, ys, x) {
+    if (x <= xs[0]) return ys[0];
+    if (x >= xs[xs.length - 1]) return ys[ys.length - 1];
+    for (let i = 0; i < xs.length - 1; i++) {
+      if (x >= xs[i] && x <= xs[i + 1]) {
+        const t = Math.log(x / xs[i]) / Math.log(xs[i + 1] / xs[i]);
+        return ys[i] + t * (ys[i + 1] - ys[i]);
+      }
+    }
+    return ys[ys.length - 1];
+  }
+
+  function qFromNeighbors(f, prev, next) {
+    const lo = prev ? Math.sqrt(prev * f) : f / 2.5;
+    const hi = next ? Math.sqrt(f * next) : f * 2.5;
+    const oct = Math.log2(hi / lo);
+    const n = clamp(oct, 0.6, 2.8);
+    const q = Math.sqrt(Math.pow(2, n)) / (Math.pow(2, n) - 1);
+    return Math.round(clamp(q, 0.7, 2.5) * 100) / 100;
+  }
+
+  function computeEQ(points, factor) {
+    const freqs = points.map((p) => p.hz);
+    const th = points.map((p) => p.threshold);
+    const uncensored = th.filter((v) => v > MIN_HL + 0.01);
+    const best = uncensored.length ? Math.min.apply(null, uncensored) : Math.min.apply(null, th);
+    const lossAt = (hz) => interpLog(freqs, th, hz) - best;
+    const extra = [];
+    if (th.some((v) => v <= MIN_HL + 0.01)) {
+      extra.push("有频点触达测听下限，未把它当作 0 dB 参考，以免低频被抬得过猛。");
+    }
+    const bands = SLOTS.map((slot, i) => {
+      const inSlot = points.filter((p) => p.hz >= slot.min && p.hz <= slot.max);
+      let freq = slot.fallback;
+      let loss = lossAt(freq);
+      if (inSlot.length) {
+        inSlot.sort((a, b) => lossAt(b.hz) - lossAt(a.hz));
+        freq = inSlot[0].hz;
+        loss = lossAt(freq);
+      }
+      if (i === SLOTS.length - 1) {
+        const above = points.filter((p) => p.hz > slot.max);
+        if (above.length) {
+          above.sort((a, b) => lossAt(b.hz) - lossAt(a.hz));
+          const hi = above[0];
+          if (lossAt(hi.hz) > loss + 4) {
+            extra.push(hi.hz + " Hz 超出第 4 段上限，改用 " + slot.max + " Hz 高架近似补偿。");
+            freq = slot.max;
+            loss = lossAt(hi.hz);
+          }
+        }
+      }
+      freq = clamp(freq, slot.min, slot.max);
+      const prev = i ? SLOTS[i - 1].fallback : null;
+      const next = SLOTS[i + 1] ? SLOTS[i + 1].fallback : null;
+      const q = slot.q || qFromNeighbors(freq, prev, next);
+      const gain = roundHalf(clamp(factor * Math.max(0, loss), 0, 12));
+      return { freq: Math.round(freq), q, gain, type: slot.type };
+    });
+    const maxG = Math.max.apply(null, bands.map((b) => b.gain).concat([0]));
+    return { bands, preamp: roundHalf(-maxG), extra, best, lossAt };
+  }
+
+  function meanThresholds(byEar) {
+    const map = {};
+    Object.keys(byEar).forEach((ear) => {
+      byEar[ear].forEach((p) => {
+        if (!map[p.hz]) map[p.hz] = [];
+        map[p.hz].push(p.threshold);
+      });
+    });
+    return Object.keys(map).map(Number).sort((a, b) => a - b).map((hz) => ({
+      hz,
+      threshold: map[hz].reduce((s, v) => s + v, 0) / map[hz].length
+    }));
+  }
+
+  function drawChart(points, eq) {
+    const svg = $("chart");
+    const w = 560, h = 180, padL = 36, padR = 12, padT = 12, padB = 28;
+    const xs = points.map((p) => p.hz);
+    const losses = points.map((p) => p.threshold - eq.best);
+    const minF = xs[0], maxF = xs[xs.length - 1];
+    const maxL = Math.max(12, Math.max.apply(null, losses.concat([1])));
+    const xOf = (f) => padL + (Math.log(f / minF) / Math.log(maxF / minF)) * (w - padL - padR);
+    const yOf = (loss) => padT + (loss / maxL) * (h - padT - padB);
+    let d = "";
+    points.forEach((p, i) => {
+      const x = xOf(p.hz), y = yOf(p.threshold - eq.best);
+      d += (i ? "L" : "M") + x + " " + y;
+    });
+    const ticks = xs.map((f) => {
+      const x = xOf(f);
+      return '<line x1="' + x + '" y1="' + (h - padB) + '" x2="' + x + '" y2="' + (h - padB + 4) + '" stroke="#2a3140"/><text x="' + x + '" y="' + (h - 8) + '" text-anchor="middle" fill="#93a0b5" font-size="11">' + (f >= 1000 ? f / 1000 + "k" : f) + "</text>";
+    }).join("");
+    const dots = points.map((p) => {
+      const x = xOf(p.hz), y = yOf(p.threshold - eq.best);
+      return '<circle cx="' + x + '" cy="' + y + '" r="4" fill="#6ee7b7"/>';
+    }).join("");
+    svg.innerHTML = '<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="#12161d" rx="12"/>' +
+      '<text x="8" y="14" fill="#93a0b5" font-size="11">相对损失 dB</text>' +
+      '<path d="' + d + '" fill="none" stroke="#6ee7b7" stroke-width="2"/>' + dots + ticks;
+  }
+
+  function renderResults() {
+    if (!lastReport) return;
+    const points = lastReport.points;
+    const eq = computeEQ(points, intensity);
+    lastReport.eq = eq;
+    $("eq-body").innerHTML = eq.bands.map((b) =>
+      "<tr><td class='num'>" + fmtHz(b.freq) + "</td><td>" + b.type + "</td><td class='num'>" + b.q.toFixed(2) + "</td><td class='num'>" + (b.gain >= 0 ? "+" : "") + b.gain.toFixed(1) + " dB</td></tr>"
+    ).join("");
+    $("preamp-line").textContent = "建议前置衰减（防削波）：" + eq.preamp.toFixed(1) + " dB。" + (eq.extra.length ? " " + eq.extra.join("；") : "");
+    $("th-body").innerHTML = points.map((p) => {
+      const loss = roundHalf(p.threshold - eq.best);
+      return "<tr><td class='num'>" + fmtHz(p.hz) + "</td><td class='num'>" + p.threshold + " HL</td><td class='num'>" + (loss >= 0 ? "+" : "") + loss.toFixed(1) + " dB</td></tr>";
+    }).join("");
+    $("false-alarm").textContent = lastReport.falseAlarms
+      ? "静音试次里点了「听得到」" + lastReport.falseAlarms + " 次，结果可能偏乐观。"
+      : "静音试次正常。";
+    drawChart(points, eq);
+    const lines = [
+      "听感测听 → 参数 EQ",
+      "模式: " + lastReport.mode + " / 声道: " + lastReport.earMode + " / 强度: " + intensity,
+      "Preamp: " + eq.preamp.toFixed(1) + " dB",
+      ""
+    ];
+    eq.bands.forEach((b, i) => {
+      lines.push((i + 1) + ". " + b.freq + " Hz | Q " + b.q.toFixed(2) + " | " + (b.gain >= 0 ? "+" : "") + b.gain.toFixed(1) + " dB | " + b.type);
+    });
+    lines.push("");
+    lines.push("阈值 HL（越大越不敏感，0=校准参考）:");
+    Object.keys(lastReport.byEar).forEach((ear) => {
+      lines.push(ear + ": " + lastReport.byEar[ear].map((p) => p.hz + "Hz=" + p.threshold).join(", "));
+    });
+    if (eq.extra.length) {
+      lines.push("");
+      eq.extra.forEach((s) => lines.push("建议: " + s));
+    }
+    lines.push("");
+    lines.push(JSON.stringify({
+      points,
+      byEar: lastReport.byEar,
+      intensity,
+      eq: eq.bands,
+      preamp: eq.preamp
+    }));
+    $("export").value = lines.join("\n");
+  }
+
+  async function startPreview(withEq) {
+    const ctx = await audio.ensure();
+    audio.stop();
+    const bufferSize = 2 * ctx.sampleRate;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + white * 0.0555179;
+      b1 = 0.99332 * b1 + white * 0.0750759;
+      b2 = 0.96900 * b2 + white * 0.1538520;
+      b3 = 0.86650 * b3 + white * 0.3104856;
+      b4 = 0.55000 * b4 + white * 0.5329522;
+      b5 = -0.7616 * b5 - white * 0.0168980;
+      data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+      b6 = white * 0.115926;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.loop = true;
+    let node = src;
+    const master = ctx.createGain();
+    master.gain.value = 0.18;
+    if (withEq && lastReport && lastReport.eq) {
+      lastReport.eq.bands.forEach((b) => {
+        const f = ctx.createBiquadFilter();
+        f.type = b.type;
+        f.frequency.value = b.freq;
+        f.Q.value = b.q;
+        f.gain.value = b.gain;
+        node.connect(f);
+        node = f;
+        previewNodes.push(f);
+      });
+      const pre = ctx.createGain();
+      pre.gain.value = Math.pow(10, lastReport.eq.preamp / 20);
+      node.connect(pre);
+      pre.connect(master);
+      previewNodes.push(pre);
+    } else {
+      node.connect(master);
+    }
+    master.connect(ctx.destination);
+    src.start();
+    previewNodes.push(src, master);
+  }
+
+  const session = {
+    freqs: QUICK,
+    ears: ["both"],
+    earMode: "both",
+    mode: "quick",
+    queue: [],
+    index: 0,
+    stair: null,
+    current: null,
+    isCatch: false,
+    byEar: {},
+    falseAlarms: 0,
+    busy: false
+  };
+
+  function buildQueue() {
+    const q = [];
+    session.ears.forEach((ear) => {
+      session.freqs.forEach((hz) => q.push({ ear, hz }));
+    });
+    return q;
+  }
+
+  async function playCurrent() {
+    const item = session.current;
+    $("btn-heard").disabled = true;
+    $("btn-miss").disabled = true;
+    $("test-status").classList.add("pulse");
+    if (session.isCatch) {
+      $("test-status").textContent = "仔细听…";
+      await audio.ensure();
+      audio.stop();
+      await sleep(1100);
+    } else {
+      const dbfs = playDbfs(item.hz, session.stair.level);
+      $("test-status").textContent = "正在播放纯音…";
+      await audio.playTone({ hz: item.hz, dbfs, ear: item.ear, seconds: 1.15 });
+      await sleep(1180);
+    }
+    $("test-status").classList.remove("pulse");
+    $("test-status").textContent = "听到了吗？";
+    $("btn-heard").disabled = false;
+    $("btn-miss").disabled = false;
+  }
+
+  function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+  function updateTestUi() {
+    const total = session.queue.length;
+    const done = session.index;
+    $("test-progress-label").textContent = "频点 " + Math.min(done + 1, total) + " / " + total;
+    $("test-bar").style.width = (100 * done / total) + "%";
+    const item = session.queue[session.index];
+    if (!item) return;
+    $("test-freq").textContent = fmtHz(item.hz);
+    $("test-ear").textContent = item.ear === "both" ? "双耳" : (item.ear === "left" ? "左耳" : "右耳");
+  }
+
+  async function beginItem() {
+    session.current = session.queue[session.index];
+    session.stair = new Staircase();
+    session.isCatch = false;
+    updateTestUi();
+    await playCurrent();
+  }
+
+  function finish() {
+    audio.stop();
+    lastReport = {
+      mode: session.mode,
+      earMode: session.earMode,
+      byEar: session.byEar,
+      points: meanThresholds(session.byEar),
+      falseAlarms: session.falseAlarms
+    };
+    renderResults();
+    show("result");
+  }
+
+  async function answer(heard) {
+    if (session.busy) return;
+    session.busy = true;
+    $("btn-heard").disabled = true;
+    $("btn-miss").disabled = true;
+    audio.stop();
+    if (session.isCatch) {
+      if (heard) session.falseAlarms += 1;
+      session.isCatch = false;
+      await playCurrent();
+      session.busy = false;
+      return;
+    }
+    session.stair.record(heard);
+    if (session.stair.done) {
+      const item = session.current;
+      if (!session.byEar[item.ear]) session.byEar[item.ear] = [];
+      session.byEar[item.ear].push({ hz: item.hz, threshold: session.stair.threshold });
+      session.index += 1;
+      if (session.index >= session.queue.length) {
+        session.busy = false;
+        finish();
+        return;
+      }
+      await beginItem();
+      session.busy = false;
+      return;
+    }
+    session.isCatch = Math.random() < 0.12;
+    if (session.isCatch) {
+      $("test-status").classList.add("pulse");
+      await playCurrent();
+    } else {
+      await playCurrent();
+    }
+    session.busy = false;
+  }
+
+  audio = new AudioEngine();
+
+  $("btn-calib").addEventListener("click", async () => {
+    try {
+      await audio.playTone({ hz: 1000, dbfs: CALIB_DBFS, ear: "both", seconds: 2.2 });
+    } catch (e) {
+      alert("无法播放：请允许网页使用音频。");
+    }
+  });
+  $("btn-calib-stop").addEventListener("click", () => audio.stop());
+  $("btn-start").addEventListener("click", async () => {
+    session.mode = document.querySelector("input[name=mode]:checked").value;
+    session.earMode = document.querySelector("input[name=ear]:checked").value;
+    session.freqs = session.mode === "full" ? FULL.slice() : QUICK.slice();
+    session.ears = session.earMode === "lr" ? ["left", "right"] : ["both"];
+    session.queue = buildQueue();
+    session.index = 0;
+    session.byEar = {};
+    session.falseAlarms = 0;
+    show("test");
+    try {
+      await audio.ensure();
+      await beginItem();
+    } catch (e) {
+      alert("无法启动音频。");
+      show("home");
+    }
+  });
+  $("btn-heard").addEventListener("click", () => answer(true));
+  $("btn-miss").addEventListener("click", () => answer(false));
+  $("btn-retry").addEventListener("click", () => {
+    audio.stop();
+    show("home");
+  });
+  $("intensity").addEventListener("click", (ev) => {
+    const btn = ev.target.closest("button[data-k]");
+    if (!btn) return;
+    intensity = Number(btn.getAttribute("data-k"));
+    [...$("intensity").children].forEach((b) => b.classList.toggle("on", b === btn));
+    renderResults();
+  });
+  $("btn-copy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText($("export").value);
+      $("btn-copy").textContent = "已复制";
+      setTimeout(() => { $("btn-copy").textContent = "复制结果"; }, 1200);
+    } catch (e) {
+      $("export").select();
+    }
+  });
+  $("btn-preview").addEventListener("click", () => startPreview(true));
+  $("btn-preview-off").addEventListener("click", () => startPreview(false));
+})();
+  </script>
+</body>
+</html>
