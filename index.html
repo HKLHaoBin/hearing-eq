@@ -148,7 +148,8 @@
           <button class="btn-heard" id="btn-heard" type="button">听得到</button>
           <button class="btn-miss" id="btn-miss" type="button">听不到</button>
         </div>
-        <p class="hint" style="margin-top:12px">没听清就选听不到。偶发静音是测谎，请照实选。</p>
+        <button class="btn-ghost" id="btn-replay" type="button" style="width:100%;margin-top:10px">再听一次</button>
+        <p class="hint" style="margin-top:12px">没听清就点「再听一次」，同一频点、同一音量会再播一遍。确定听不到再选听不到。偶发静音是测谎，请照实选。</p>
       </div>
     </section>
 
@@ -573,7 +574,8 @@
     isCatch: false,
     byEar: {},
     falseAlarms: 0,
-    busy: false
+    busy: false,
+    playing: false
   };
 
   function buildQueue() {
@@ -584,26 +586,41 @@
     return q;
   }
 
+  function setTestButtons(ready) {
+    $("btn-heard").disabled = !ready;
+    $("btn-miss").disabled = !ready;
+    $("btn-replay").disabled = !ready;
+  }
+
   async function playCurrent() {
+    if (session.playing) return;
+    session.playing = true;
     const item = session.current;
-    $("btn-heard").disabled = true;
-    $("btn-miss").disabled = true;
+    setTestButtons(false);
     $("test-status").classList.add("pulse");
-    if (session.isCatch) {
-      $("test-status").textContent = "仔细听…";
-      await audio.ensure();
-      audio.stop();
-      await sleep(1100);
-    } else {
-      const dbfs = playDbfs(item.hz, session.stair.level);
-      $("test-status").textContent = "正在播放纯音…";
-      await audio.playTone({ hz: item.hz, dbfs, ear: item.ear, seconds: 1.15 });
-      await sleep(1180);
+    try {
+      if (session.isCatch) {
+        $("test-status").textContent = "仔细听…";
+        await audio.ensure();
+        audio.stop();
+        await sleep(1100);
+      } else {
+        const dbfs = playDbfs(item.hz, session.stair.level);
+        $("test-status").textContent = "正在播放纯音…";
+        await audio.playTone({ hz: item.hz, dbfs, ear: item.ear, seconds: 1.15 });
+        await sleep(1180);
+      }
+    } finally {
+      session.playing = false;
     }
     $("test-status").classList.remove("pulse");
-    $("test-status").textContent = "听到了吗？";
-    $("btn-heard").disabled = false;
-    $("btn-miss").disabled = false;
+    $("test-status").textContent = "听到了吗？不确定可以再听一次。";
+    setTestButtons(true);
+  }
+
+  async function replayCurrent() {
+    if (session.busy || session.playing) return;
+    await playCurrent();
   }
 
   function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
@@ -641,10 +658,9 @@
   }
 
   async function answer(heard) {
-    if (session.busy) return;
+    if (session.busy || session.playing) return;
     session.busy = true;
-    $("btn-heard").disabled = true;
-    $("btn-miss").disabled = true;
+    setTestButtons(false);
     audio.stop();
     if (session.isCatch) {
       if (heard) session.falseAlarms += 1;
@@ -708,6 +724,7 @@
   });
   $("btn-heard").addEventListener("click", () => answer(true));
   $("btn-miss").addEventListener("click", () => answer(false));
+  $("btn-replay").addEventListener("click", () => replayCurrent());
   $("btn-retry").addEventListener("click", () => {
     audio.stop();
     show("home");
