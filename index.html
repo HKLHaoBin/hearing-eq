@@ -155,7 +155,7 @@
 
     <section id="screen-result" class="hidden">
       <h1>EQ 建议</h1>
-      <p class="warn">按「相对最灵敏频点 + 半增益」估算，并限制在 +12 dB 内。可改频点、Q、增益。把下方文本发给我即可继续微调。</p>
+      <p class="warn">下面是按听阈算出的精确值。耳机 EQ 若有频点范围、整数增益、Q 位数等限制，把文本复制给 Agent，由对方按设备取舍，页面不提前降精度。</p>
       <div class="card">
         <h2>补偿强度</h2>
         <div class="seg" id="intensity">
@@ -200,7 +200,7 @@
   const SLOTS = [
     { min: 20, max: 200, type: "lowshelf", q: 0.7, fallback: 100 },
     { min: 210, max: 3000, type: "peaking", q: 1.0, fallback: 500 },
-    { min: 3100, max: 5000, type: "peaking", q: 1.4, fallback: 4000 },
+    { min: 3100, max: 5000, type: "peaking", q: 1.41, fallback: 4000 },
     { min: 5100, max: 10000, type: "highshelf", q: 0.7, fallback: 8000 }
   ];
   const CALIB_DBFS = -20;
@@ -257,9 +257,6 @@
 
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function roundHalf(v) { return Math.round(v * 2) / 2; }
-  function roundDb(v) { return Math.round(v); }
-  function roundQ(v) { return Math.round(v * 10) / 10; }
-  function fmtDb(v) { return (v > 0 ? "+" : "") + String(roundDb(v)); }
 
   class AudioEngine {
     constructor() {
@@ -385,7 +382,7 @@
     const oct = Math.log2(hi / lo);
     const n = clamp(oct, 0.6, 2.8);
     const q = Math.sqrt(Math.pow(2, n)) / (Math.pow(2, n) - 1);
-    return Math.round(clamp(q, 0.7, 2.5) * 10) / 10;
+    return Math.round(clamp(q, 0.7, 2.5) * 100) / 100;
   }
 
   function computeEQ(points, factor) {
@@ -422,16 +419,12 @@
       freq = clamp(freq, slot.min, slot.max);
       const prev = i ? SLOTS[i - 1].fallback : null;
       const next = SLOTS[i + 1] ? SLOTS[i + 1].fallback : null;
-      let q = roundQ(slot.q || qFromNeighbors(freq, prev, next));
-      let gain = roundDb(clamp(factor * Math.max(0, loss), 0, 12));
-      if (i === SLOTS.length - 1 && freq >= slot.max) {
-        q = 1.2;
-        gain = Math.min(gain, 8);
-      }
+      const q = slot.q || qFromNeighbors(freq, prev, next);
+      const gain = roundHalf(clamp(factor * Math.max(0, loss), 0, 12));
       return { freq: Math.round(freq), q, gain, type: slot.type };
     });
     const maxG = Math.max.apply(null, bands.map((b) => b.gain).concat([0]));
-    return { bands, preamp: roundDb(-maxG), extra, best, lossAt };
+    return { bands, preamp: roundHalf(-maxG), extra, best, lossAt };
   }
 
   function meanThresholds(byEar) {
@@ -481,9 +474,9 @@
     const eq = computeEQ(points, intensity);
     lastReport.eq = eq;
     $("eq-body").innerHTML = eq.bands.map((b) =>
-      "<tr><td class='num'>" + fmtHz(b.freq) + "</td><td>" + b.type + "</td><td class='num'>" + b.q.toFixed(1) + "</td><td class='num'>" + fmtDb(b.gain) + " dB</td></tr>"
+      "<tr><td class='num'>" + fmtHz(b.freq) + "</td><td>" + b.type + "</td><td class='num'>" + b.q.toFixed(2) + "</td><td class='num'>" + (b.gain >= 0 ? "+" : "") + b.gain.toFixed(1) + " dB</td></tr>"
     ).join("");
-    $("preamp-line").textContent = "建议前置衰减（防削波）：" + fmtDb(eq.preamp) + " dB。" + (eq.extra.length ? " " + eq.extra.join("；") : "");
+    $("preamp-line").textContent = "建议前置衰减（防削波）：" + eq.preamp.toFixed(1) + " dB。" + (eq.extra.length ? " " + eq.extra.join("；") : "");
     $("th-body").innerHTML = points.map((p) => {
       const loss = roundHalf(p.threshold - eq.best);
       return "<tr><td class='num'>" + fmtHz(p.hz) + "</td><td class='num'>" + p.threshold + " HL</td><td class='num'>" + (loss >= 0 ? "+" : "") + loss.toFixed(1) + " dB</td></tr>";
@@ -495,11 +488,11 @@
     const lines = [
       "听感测听 → 参数 EQ",
       "模式: " + lastReport.mode + " / 声道: " + lastReport.earMode + " / 强度: " + intensity,
-      "Preamp: " + fmtDb(eq.preamp) + " dB",
+      "Preamp: " + eq.preamp.toFixed(1) + " dB",
       ""
     ];
     eq.bands.forEach((b, i) => {
-      lines.push((i + 1) + ". " + b.freq + " Hz | Q " + b.q.toFixed(1) + " | " + fmtDb(b.gain) + " dB | " + b.type);
+      lines.push((i + 1) + ". " + b.freq + " Hz | Q " + b.q.toFixed(2) + " | " + (b.gain >= 0 ? "+" : "") + b.gain.toFixed(1) + " dB | " + b.type);
     });
     lines.push("");
     lines.push("阈值 HL（越大越不敏感，0=校准参考）:");
