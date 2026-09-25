@@ -1,13 +1,39 @@
-# Hearing EQ for wired headphones via CX31993 USB DAC (PC)
-# Source: full/both intensity 0.7 — 2026-09-25
-# HL: 100=-30 250=-35 500=-30 1k=-35 2k=-45 4k=-30 8k=-35 12k=0
-# 2 kHz most sensitive (0 dB ref); 12 kHz capped via 10 kHz highshelf
-# Import: Equalizer APO config.txt / Peace → Import
-# If harsh: lower 4k/10k by 2 dB; if dark: raise 10k toward +12 (already max)
+# Hearing EQ 31-band peaking — CX31993 384Khz HIFI AUDIO (PC + wired)
+# 2026-09-25 full/both intensity 0.7
+# HL: 100=-30 250=-35 500=-30 1k=-35 2k=-45(ref) 4k=-30 8k=-35 12k=0
+# 31 log bands 12–16334 Hz; all PK Q=1.41; gain = ΔHL×0.7 clamped ±30 / page +12
+# Equalizer APO / Peace import. Stacking may add extra lift — lower Preamp if harsh.
 
 Device: CX31993 384Khz HIFI AUDIO
-Preamp: -12 dB
-Filter: ON LSC Fc 100 Hz Gain 10.5 dB Q 0.7
-Filter: ON PK Fc 500 Hz Gain 10.5 dB Q 1.0
-Filter: ON PK Fc 4000 Hz Gain 10.5 dB Q 1.41
-Filter: ON HSC Fc 10000 Hz Gain 12.0 dB Q 0.7
+Preamp: -12.0 dB
+Filter: ON PK Fc 12.0 Hz Gain 10.5 dB Q 1.41
+Filter: ON PK Fc 15.3 Hz Gain 10.5 dB Q 1.41
+Filter: ON PK Fc 19.4 Hz Gain 10.5 dB Q 1.41
+Filter: ON PK Fc 24.7 Hz Gain 10.5 dB Q 1.41
+Filter: ON PK Fc 31.4 Hz Gain 10.5 dB Q 1.41
+Filter: ON PK Fc 39.9 Hz Gain 10.5 dB Q 1.41
+Filter: ON PK Fc 50.8 Hz Gain 10.5 dB Q 1.41
+Filter: ON PK Fc 64.6 Hz Gain 10.5 dB Q 1.41
+Filter: ON PK Fc 82.2 Hz Gain 10.5 dB Q 1.41
+Filter: ON PK Fc 105 Hz Gain 10.3 dB Q 1.41
+Filter: ON PK Fc 133 Hz Gain 9.4 dB Q 1.41
+Filter: ON PK Fc 169 Hz Gain 8.5 dB Q 1.41
+Filter: ON PK Fc 215 Hz Gain 7.6 dB Q 1.41
+Filter: ON PK Fc 274 Hz Gain 7.5 dB Q 1.41
+Filter: ON PK Fc 348 Hz Gain 8.7 dB Q 1.41
+Filter: ON PK Fc 443 Hz Gain 9.9 dB Q 1.41
+Filter: ON PK Fc 563 Hz Gain 9.9 dB Q 1.41
+Filter: ON PK Fc 716 Hz Gain 8.7 dB Q 1.41
+Filter: ON PK Fc 911 Hz Gain 7.5 dB Q 1.41
+Filter: ON PK Fc 1159 Hz Gain 5.5 dB Q 1.41
+Filter: ON PK Fc 1474 Hz Gain 3.1 dB Q 1.41
+Filter: ON PK Fc 1875 Hz Gain 0.7 dB Q 1.41
+Filter: ON PK Fc 2384 Hz Gain 2.7 dB Q 1.41
+Filter: ON PK Fc 3033 Hz Gain 6.3 dB Q 1.41
+Filter: ON PK Fc 3858 Hz Gain 10.0 dB Q 1.41
+Filter: ON PK Fc 4907 Hz Gain 9.5 dB Q 1.41
+Filter: ON PK Fc 6241 Hz Gain 8.3 dB Q 1.41
+Filter: ON PK Fc 7938 Hz Gain 7.0 dB Q 1.41
+Filter: ON PK Fc 10096 Hz Gain 12.0 dB Q 1.41
+Filter: ON PK Fc 12842 Hz Gain 12.0 dB Q 1.41
+Filter: ON PK Fc 16334 Hz Gain 12.0 dB Q 1.41
